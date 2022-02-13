@@ -1,0 +1,288 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.4.1124.51302",
+      "templateHash": "5297543227072620380"
+    }
+  },
+  "parameters": {
+    "environment": {
+      "type": "string",
+      "defaultValue": "Development",
+      "allowedValues": [
+        "Production",
+        "Development"
+      ],
+      "metadata": {
+        "description": "Define if deployment should be in production or development mode"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[deployment().location]",
+      "metadata": {
+        "description": "Geographic Azure location"
+      }
+    }
+  },
+  "variables": {
+    "environmentSuffix": "[if(equals(parameters('environment'), 'Production'), '', 'Dev')]",
+    "resourceGroupName": "[format('demonstrationBicepResourceGroup{0}', variables('environmentSuffix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2021-04-01",
+      "name": "[variables('resourceGroupName')]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "vm",
+      "resourceGroup": "[variables('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "username": {
+            "value": "vmuser"
+          },
+          "password": {
+            "value": "P@ssword123!"
+          },
+          "vmName": {
+            "value": "bicepTestVM"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.4.1124.51302",
+              "templateHash": "1853523310729996798"
+            }
+          },
+          "parameters": {
+            "username": {
+              "type": "string",
+              "metadata": {
+                "description": "The username for the admin user of the VM"
+              }
+            },
+            "password": {
+              "type": "secureString",
+              "minLength": 8,
+              "metadata": {
+                "description": "Secure Password for the VM user"
+              }
+            },
+            "vmName": {
+              "type": "string",
+              "metadata": {
+                "description": "Prefix of the VM name"
+              }
+            },
+            "dnsLabelPrefix": {
+              "type": "string",
+              "defaultValue": "[toLower(format('{0}-{1}', parameters('vmName'), uniqueString(resourceGroup().id, parameters('vmName'))))]",
+              "metadata": {
+                "description": "Unique DNS Name for the Public IP used to access the Virtual Machine."
+              }
+            },
+            "publicIpName": {
+              "type": "string",
+              "defaultValue": "vmPublicIpBicep"
+            },
+            "vmOperatingSystem": {
+              "type": "string",
+              "defaultValue": "2019-Datacenter",
+              "allowedValues": [
+                "2016-Datacenter",
+                "2019-Datacenter",
+                "2022-Datacenter"
+              ],
+              "metadata": {
+                "description": "Available images can be checked with \"az vm image list\""
+              }
+            },
+            "vmSize": {
+              "type": "string",
+              "defaultValue": "Standard_D2_v3",
+              "metadata": {
+                "description": "Size of the virtual machine."
+              }
+            },
+            "location": {
+              "type": "string",
+              "defaultValue": "[resourceGroup().location]"
+            }
+          },
+          "variables": {
+            "addressPrefix": "10.0.0.0/16"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Network/publicIPAddresses",
+              "apiVersion": "2021-05-01",
+              "name": "[parameters('publicIpName')]",
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Basic"
+              },
+              "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                  "domainNameLabel": "[parameters('dnsLabelPrefix')]"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/networkSecurityGroups",
+              "apiVersion": "2021-05-01",
+              "name": "networksecuritygroupnamekdnkhjvsklhlv",
+              "location": "[parameters('location')]",
+              "properties": {
+                "securityRules": [
+                  {
+                    "name": "default-allow-rdp-port-3389",
+                    "properties": {
+                      "access": "Allow",
+                      "direction": "Inbound",
+                      "protocol": "Tcp",
+                      "destinationPortRange": "3389",
+                      "sourcePortRange": "*",
+                      "sourceAddressPrefix": "*",
+                      "destinationAddressPrefix": "*",
+                      "priority": 1024
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks",
+              "apiVersion": "2021-05-01",
+              "name": "myVirtualNetworkBicep",
+              "location": "[parameters('location')]",
+              "properties": {
+                "addressSpace": {
+                  "addressPrefixes": [
+                    "[variables('addressPrefix')]"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Network/virtualNetworks/subnets",
+              "apiVersion": "2021-05-01",
+              "name": "[format('{0}/{1}', 'myVirtualNetworkBicep', 'mySubnetBicep')]",
+              "properties": {
+                "addressPrefix": "[variables('addressPrefix')]",
+                "networkSecurityGroup": {
+                  "id": "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroupnamekdnkhjvsklhlv')]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', 'networksecuritygroupnamekdnkhjvsklhlv')]",
+                "[resourceId('Microsoft.Network/virtualNetworks', 'myVirtualNetworkBicep')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/networkInterfaces",
+              "apiVersion": "2021-05-01",
+              "name": "nic",
+              "location": "[parameters('location')]",
+              "properties": {
+                "ipConfigurations": [
+                  {
+                    "name": "ipconfig001",
+                    "properties": {
+                      "privateIPAllocationMethod": "Dynamic",
+                      "publicIPAddress": {
+                        "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]"
+                      },
+                      "subnet": {
+                        "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'myVirtualNetworkBicep', 'mySubnetBicep')]"
+                      }
+                    }
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', 'myVirtualNetworkBicep', 'mySubnetBicep')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Compute/virtualMachines",
+              "apiVersion": "2021-11-01",
+              "name": "[parameters('vmName')]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "hardwareProfile": {
+                  "vmSize": "[parameters('vmSize')]"
+                },
+                "osProfile": {
+                  "computerName": "[parameters('vmName')]",
+                  "adminUsername": "[parameters('username')]",
+                  "adminPassword": "[parameters('password')]"
+                },
+                "storageProfile": {
+                  "imageReference": {
+                    "publisher": "MicrosoftWindowsServer",
+                    "offer": "WindowsServer",
+                    "sku": "[parameters('vmOperatingSystem')]",
+                    "version": "latest"
+                  },
+                  "osDisk": {
+                    "createOption": "FromImage",
+                    "managedDisk": {
+                      "storageAccountType": "StandardSSD_LRS"
+                    }
+                  },
+                  "dataDisks": [
+                    {
+                      "diskSizeGB": 1023,
+                      "lun": 0,
+                      "createOption": "Empty"
+                    }
+                  ]
+                },
+                "networkProfile": {
+                  "networkInterfaces": [
+                    {
+                      "id": "[resourceId('Microsoft.Network/networkInterfaces', 'nic')]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', 'nic')]"
+              ]
+            }
+          ],
+          "outputs": {
+            "hostname": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIpName'))).dnsSettings.fqdn]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('resourceGroupName'))]"
+      ]
+    }
+  ]
+}
